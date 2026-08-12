@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Dashboard Performa Harian — Content Editor</title>
+<meta name="theme-color" content="#0F7638">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Log Harian">
+<meta name="application-name" content="Log Harian">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gr:#15803D;--gr-d:#0F7638;--gr-l:#F0FDF4;--gr-b:#BBF7D0;
+  --ch:#1C1E26;--ch2:#3A3D4A;
+  --amb:#D97706;--amb-l:#FFFBEB;--amb-b:#FDE68A;
+  --red:#DC2626;--red-l:#FEF2F2;--red-b:#FECACA;
+  --gry:#6B7280;--gry-l:#F9FAFB;--gry-b:#E5E7EB;
+  --bg:#F7F9F7;--card:#FFFFFF;--card2:#F3F6F3;
+  --txt:#1C1E26;--txt2:#3A3D4A;--mut:#8A8D98;--bdr:#E5E7E5;
+  --shd:0 1px 6px rgba(0,0,0,.06);--shd2:0 4px 20px rgba(0,0,0,.12);
+  --r:14px;--font:'Poppins',-apple-system,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:100vh;padding-bottom:24px}
+input,select,button{font-family:var(--font)}
+
+.topbar{background:linear-gradient(135deg,var(--gr),var(--gr-d));padding:16px 18px;position:sticky;top:0;z-index:100;box-shadow:var(--shd2)}
+.topbar-inner{max-width:900px;margin:0 auto}
+.topbar-title{font-size:14px;font-weight:800;color:#fff}
+.topbar-sub{font-size:10.5px;color:rgba(255,255,255,.8);font-weight:500;margin-bottom:12px}
+.period-row{display:flex;gap:8px;flex-wrap:wrap}
+.period-row select,.period-row input{padding:9px 12px;border-radius:9px;border:none;font-size:12.5px;background:rgba(255,255,255,.95);color:var(--ch);outline:none}
+.period-row select{flex:1;min-width:140px}
+.btn-apply{padding:9px 16px;border-radius:9px;border:none;background:var(--ch);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+
+.wrap{max-width:900px;margin:0 auto;padding:16px 16px 40px}
+.section-title{font-size:12.5px;font-weight:800;color:var(--ch);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 10px}
+.section-title:first-child{margin-top:4px}
+.period-label{font-size:11.5px;color:var(--mut);margin-bottom:14px}
+.card{background:var(--card);border-radius:var(--r);padding:18px;box-shadow:var(--shd);border:1px solid var(--bdr);margin-bottom:14px}
+.card-desc{font-size:11.5px;color:var(--mut);margin-bottom:14px;line-height:1.6}
+
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:600px){.summary-grid{grid-template-columns:repeat(3,1fr)}}
+.summary-card{background:var(--card);border-radius:var(--r);padding:14px;box-shadow:var(--shd);border:1px solid var(--bdr);border-left:3px solid var(--gr)}
+.summary-card.warn{border-left-color:var(--red)}
+.summary-val{font-size:22px;font-weight:800;color:var(--ch);line-height:1}
+.summary-lbl{font-size:10px;color:var(--mut);font-weight:600;margin-top:5px}
+
+.chart-box{position:relative;height:260px}
+.gap-note{font-size:10.5px;color:var(--mut);margin-top:8px;line-height:1.6}
+
+.content-search{width:100%;padding:10px 13px;border:1.5px solid var(--bdr);border-radius:10px;font-size:13px;color:var(--txt);background:var(--card2);outline:none;margin-bottom:12px}
+.content-list{max-height:360px;overflow-y:auto}
+.content-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--bdr)}
+.content-item:last-child{border-bottom:none}
+.content-date{width:64px;flex-shrink:0;font-size:10px;color:var(--mut);font-weight:700;padding-top:2px}
+.content-badge{display:inline-block;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;margin-right:6px;text-transform:uppercase}
+.badge-iklan{background:var(--gr-l);color:var(--gr-d)}
+.badge-sosmed{background:var(--amb-l);color:var(--amb)}
+.badge-offline{background:var(--gry-l);color:var(--gry)}
+.content-title{font-size:12px;color:var(--txt2);margin-top:4px;line-height:1.5}
+.content-empty{font-size:12px;color:var(--mut);text-align:center;padding:20px}
+
+.alasan-list{max-height:300px;overflow-y:auto}
+.alasan-item{padding:10px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.alasan-item:last-child{border-bottom:none}
+.alasan-date{font-size:10px;color:var(--mut);font-weight:700;margin-bottom:3px}
+.alasan-text{color:var(--txt2);line-height:1.6}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-title">📈 Dashboard Performa Harian</div>
+    <div class="topbar-sub">Content Editor — Log Harian</div>
+    <div class="period-row">
+      <select id="periodSelect" onchange="onPeriodChange()">
+        <option value="7">7 Hari Terakhir</option>
+        <option value="14" selected>14 Hari Terakhir</option>
+        <option value="30">30 Hari Terakhir</option>
+        <option value="month">Bulan Ini</option>
+        <option value="all">Semua Data</option>
+        <option value="custom">Custom Tanggal...</option>
+      </select>
+      <button class="btn-apply" onclick="loadData(true)">🔄 Refresh</button>
+    </div>
+    <div class="period-row" id="customDateRow" style="display:none;margin-top:8px">
+      <input type="date" id="dateFrom">
+      <input type="date" id="dateTo">
+      <button class="btn-apply" onclick="renderAll()">Terapkan</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="period-label" id="periodLabel">Memuat data...</div>
+
+  <div class="section-title">Ringkasan</div>
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-val" id="k-avg">—</div><div class="summary-lbl">Rata-rata Kepatuhan</div></div>
+    <div class="summary-card"><div class="summary-val" id="k-full">—</div><div class="summary-lbl">Hari Checklist 100%</div></div>
+    <div class="summary-card warn"><div class="summary-val" id="k-low">—</div><div class="summary-lbl">Hari Kepatuhan Rendah (&lt;70%)</div></div>
+    <div class="summary-card warn"><div class="summary-val" id="k-gap">—</div><div class="summary-lbl">Hari Tanpa Data</div></div>
+    <div class="summary-card"><div class="summary-val" id="k-konten">—</div><div class="summary-lbl">Total Konten Diproduksi</div></div>
+    <div class="summary-card"><div class="summary-val" id="k-review">—</div><div class="summary-lbl">Review Dilakukan</div></div>
+  </div>
+
+  <div class="section-title">Tren Kepatuhan Checklist</div>
+  <div class="card">
+    <div class="card-desc">Garis putus-putus = tren keseluruhan (regresi linear)</div>
+    <div class="chart-box"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <div class="section-title">Produksi Konten per Channel</div>
+  <div class="card">
+    <div class="card-desc">Jumlah konten dibuat per hari, dipecah per channel</div>
+    <div class="chart-box"><canvas id="channelChart"></canvas></div>
+  </div>
+
+  <div class="section-title">Daftar Konten Diproduksi</div>
+  <div class="card">
+    <input class="content-search" id="contentSearch" placeholder="Cari judul konten..." oninput="renderContentList()">
+    <div class="content-list" id="contentList"></div>
+  </div>
+
+  <div class="section-title">Log Alasan Tidak Selesai</div>
+  <div class="card">
+    <div class="alasan-list" id="alasanList"></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════
+const SHEET_ID = '1Wb5B4CalH7xS6QGwPEHZMa7zD_H9tGxfVsBMM6l-ikA';
+const SHEET_NAME = 'Log Harian';
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function todayStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dstr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const MO = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+function fmtTglShort(iso){
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.getDate()+' '+MO[d.getMonth()];
+}
+function fmtTglFull(iso){
+  const MOF=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.getDate()+' '+MOF[d.getMonth()]+' '+d.getFullYear();
+}
+
+// ══════════════════════════════════════════════════════
+// GVIZ READ
+// ══════════════════════════════════════════════════════
+function gviz(sheetId, sheetName, range){
+  return new Promise((resolve,reject)=>{
+    const cb = 'gvizCb_'+Math.random().toString(36).slice(2);
+    const timeout = setTimeout(()=>{ cleanup(); reject(new Error('timeout')); }, 12000);
+    function cleanup(){ clearTimeout(timeout); delete window[cb]; if(sc.parentNode) sc.parentNode.removeChild(sc); }
+    window[cb] = (resp)=>{ cleanup(); resolve(resp && resp.table ? resp.table : {rows:[]}); };
+    const sc = document.createElement('script');
+    sc.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&sheet=${encodeURIComponent(sheetName)}&range=${range}&headers=0&cb=${Date.now()}`;
+    sc.onerror = ()=>{ cleanup(); reject(new Error('gagal load sheet')); };
+    document.head.appendChild(sc);
+  });
+}
+function gv(cell){ return cell ? cell.v : ''; }
+function gvDate(cell){
+  const v = gv(cell);
+  if(v===null||v===undefined||v==='') return '';
+  const s = String(v);
+  const m = s.match(/^Date\((\d+),(\d+),(\d+)/);
+  if(m) return m[1]+'-'+String(parseInt(m[2],10)+1).padStart(2,'0')+'-'+String(parseInt(m[3],10)).padStart(2,'0');
+  return s.slice(0,10);
+}
+function parsePercent(v){
+  if(v===null||v===undefined||v==='') return 0;
+  const s = String(v).trim();
+  if(s.includes('%')) return parseFloat(s.replace('%',''))||0;
+  const n = parseFloat(s)||0;
+  return n<=1 ? n*100 : n;
+}
+
+// ══════════════════════════════════════════════════════
+// LOAD & DEDUP (ambil baris TERAKHIR per tanggal)
+// ══════════════════════════════════════════════════════
+let ALL_DATA = [];
+async function loadData(manual){
+  document.getElementById('periodLabel').textContent = 'Memuat data...';
+  try{
+    const t = await gviz(SHEET_ID, SHEET_NAME, 'A2:M');
+    const rows = (t.rows||[]).map(r=>{
+      const c = r.c||[];
+      const tgl = gvDate(c[0]);
+      if(!tgl) return null;
+      return {
+        tanggal: tgl,
+        pct: parsePercent(gv(c[1])),
+        selesai: Number(gv(c[2]))||0,
+        total: Number(gv(c[3]))||0,
+        review: String(gv(c[5])).trim().toLowerCase()==='ya',
+        iklanCount: Number(gv(c[6]))||0,
+        iklanTitles: String(gv(c[7])||'').split(',').map(s=>s.trim()).filter(Boolean),
+        sosmedCount: Number(gv(c[8]))||0,
+        sosmedTitles: String(gv(c[9])||'').split(',').map(s=>s.trim()).filter(Boolean),
+        offlineCount: Number(gv(c[10]))||0,
+        offlineTitles: String(gv(c[11])||'').split(',').map(s=>s.trim()).filter(Boolean),
+        alasan: String(gv(c[12])||'').trim(),
+      };
+    }).filter(Boolean);
+
+    // Dedup: baris di bawah menimpa baris di atas utk tanggal yg sama —
+    // otomatis nyisain cuma baris TERAKHIR per tanggal (paling update).
+    const byDate = {};
+    rows.forEach(r=>{ byDate[r.tanggal] = r; });
+    ALL_DATA = Object.values(byDate).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
+
+    renderAll();
+    if(manual) document.getElementById('periodLabel').textContent += ' (diperbarui)';
+  }catch(e){
+    document.getElementById('periodLabel').textContent = '❌ Gagal memuat data: '+e.message;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PERIODE
+// ══════════════════════════════════════════════════════
+function onPeriodChange(){
+  const v = document.getElementById('periodSelect').value;
+  document.getElementById('customDateRow').style.display = (v==='custom') ? 'flex' : 'none';
+  if(v!=='custom') renderAll();
+}
+function getPeriodRange(){
+  const v = document.getElementById('periodSelect').value;
+  const maxDate = ALL_DATA.length ? ALL_DATA[ALL_DATA.length-1].tanggal : todayStr();
+  const minDate = ALL_DATA.length ? ALL_DATA[0].tanggal : todayStr();
+  if(v==='all') return {from:minDate, to:maxDate};
+  if(v==='month'){
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {from: dstr(from), to:maxDate};
+  }
+  if(v==='custom'){
+    const from = document.getElementById('dateFrom').value || minDate;
+    const to = document.getElementById('dateTo').value || maxDate;
+    return {from, to};
+  }
+  const days = parseInt(v,10);
+  const to = new Date(maxDate+'T00:00:00');
+  const from = new Date(to); from.setDate(from.getDate()-(days-1));
+  return {from: dstr(from), to: maxDate};
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER SEMUA — semua bagian ngikut periode yang sama
+// ══════════════════════════════════════════════════════
+let CURRENT_ROWS = [];
+function renderAll(){
+  if(!ALL_DATA.length){
+    document.getElementById('periodLabel').textContent = 'Belum ada data di sheet "Log Harian".';
+    return;
+  }
+  const {from,to} = getPeriodRange();
+  CURRENT_ROWS = ALL_DATA.filter(r=>r.tanggal>=from && r.tanggal<=to);
+  document.getElementById('periodLabel').innerHTML =
+    `Menampilkan <b>${CURRENT_ROWS.length} hari tercatat</b> &nbsp;(${fmtTglFull(from)} — ${fmtTglFull(to)})`;
+
+  renderKPI(CURRENT_ROWS, from, to);
+  renderTrendChart(CURRENT_ROWS);
+  renderChannelChart(CURRENT_ROWS);
+  renderContentList();
+  renderAlasanList(CURRENT_ROWS);
+}
+
+function renderKPI(rows, from, to){
+  if(!rows.length){
+    ['k-avg','k-full','k-low','k-gap','k-konten','k-review'].forEach(id=>document.getElementById(id).textContent='—');
+    return;
+  }
+  const avg = rows.reduce((s,r)=>s+r.pct,0)/rows.length;
+  const full = rows.filter(r=>r.pct>=100).length;
+  const low = rows.filter(r=>r.pct<70).length;
+  const totalKonten = rows.reduce((s,r)=>s+r.iklanCount+r.sosmedCount+r.offlineCount,0);
+  const reviewYa = rows.filter(r=>r.review).length;
+
+  // Hari Tanpa Data: tanggal dalam rentang [from,to] yg BUKAN hari Minggu
+  // (hari istirahat di app checklist-nya) tapi gak ada entri di ALL_DATA.
+  const dateSet = new Set(ALL_DATA.map(r=>r.tanggal));
+  let gap = 0;
+  const d0 = new Date(from+'T00:00:00'), d1 = new Date(to+'T00:00:00');
+  for(let d=new Date(d0); d<=d1; d.setDate(d.getDate()+1)){
+    if(d.getDay()===0) continue; // Minggu = hari istirahat, di-skip
+    const key = dstr(d);
+    if(!dateSet.has(key)) gap++;
+  }
+
+  document.getElementById('k-avg').textContent = avg.toFixed(0)+'%';
+  document.getElementById('k-full').textContent = full;
+  document.getElementById('k-low').textContent = low;
+  document.getElementById('k-gap').textContent = gap;
+  document.getElementById('k-konten').textContent = totalKonten;
+  document.getElementById('k-review').textContent = reviewYa+'/'+rows.length;
+}
+
+function linearTrend(values){
+  const n=values.length;
+  if(n<2) return values.slice();
+  const xMean=(n-1)/2, yMean=values.reduce((a,b)=>a+b,0)/n;
+  let num=0,den=0;
+  values.forEach((y,x)=>{ num+=(x-xMean)*(y-yMean); den+=(x-xMean)*(x-xMean); });
+  const slope=den===0?0:num/den, intercept=yMean-slope*xMean;
+  return values.map((_,x)=>slope*x+intercept);
+}
+
+let trendChartInstance=null;
+function renderTrendChart(rows){
+  const ctx = document.getElementById('trendChart');
+  const labels = rows.map(r=>fmtTglShort(r.tanggal));
+  const pctData = rows.map(r=>r.pct);
+  const trend = linearTrend(pctData);
+  if(trendChartInstance) trendChartInstance.destroy();
+  trendChartInstance = new Chart(ctx,{
+    type:'line',
+    data:{labels, datasets:[
+      {label:'% Checklist', data:pctData, borderColor:'#15803D', backgroundColor:'rgba(21,128,61,.12)', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#15803D', tension:.3, fill:true},
+      {label:'Tren', data:trend, borderColor:'#1C1E26', borderDash:[6,4], borderWidth:2, pointRadius:0, tension:0, fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{font:{size:10.5,family:'Poppins'}}}},
+      scales:{y:{min:0,max:100,ticks:{font:{size:10.5,family:'Poppins'},callback:v=>v+'%'}},
+              x:{ticks:{font:{size:10,family:'Poppins'}}}}}
+  });
+}
+
+let channelChartInstance=null;
+function renderChannelChart(rows){
+  const ctx = document.getElementById('channelChart');
+  const labels = rows.map(r=>fmtTglShort(r.tanggal));
+  if(channelChartInstance) channelChartInstance.destroy();
+  channelChartInstance = new Chart(ctx,{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Iklan', data:rows.map(r=>r.iklanCount), backgroundColor:'#15803D', borderRadius:4},
+      {label:'Sosmed', data:rows.map(r=>r.sosmedCount), backgroundColor:'#D97706', borderRadius:4},
+      {label:'Offline', data:rows.map(r=>r.offlineCount), backgroundColor:'#6B7280', borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{font:{size:10.5,family:'Poppins'}}}},
+      scales:{y:{beginAtZero:true,ticks:{font:{size:10.5,family:'Poppins'},stepSize:1}},
+              x:{stacked:false,ticks:{font:{size:10,family:'Poppins'}}}}}
+  });
+}
+
+function renderContentList(){
+  const q = (document.getElementById('contentSearch').value||'').trim().toLowerCase();
+  const el = document.getElementById('contentList');
+  let items = [];
+  [...CURRENT_ROWS].reverse().forEach(r=>{
+    r.iklanTitles.forEach(t=>items.push({tanggal:r.tanggal, channel:'iklan', title:t}));
+    r.sosmedTitles.forEach(t=>items.push({tanggal:r.tanggal, channel:'sosmed', title:t}));
+    r.offlineTitles.forEach(t=>items.push({tanggal:r.tanggal, channel:'offline', title:t}));
+  });
+  if(q) items = items.filter(i=>i.title.toLowerCase().includes(q));
+  if(!items.length){
+    el.innerHTML = '<div class="content-empty">Gak ada konten yang cocok pada periode ini.</div>';
+    return;
+  }
+  const badgeLabel = {iklan:'Iklan',sosmed:'Sosmed',offline:'Offline'};
+  el.innerHTML = items.map(i=>`
+    <div class="content-item">
+      <div class="content-date">${fmtTglShort(i.tanggal)}</div>
+      <div style="flex:1">
+        <span class="content-badge badge-${i.channel}">${badgeLabel[i.channel]}</span>
+        <div class="content-title">${esc(i.title)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderAlasanList(rows){
+  const el = document.getElementById('alasanList');
+  const withAlasan = [...rows].reverse().filter(r=>r.alasan);
+  if(!withAlasan.length){
+    el.innerHTML = '<div class="content-empty">✅ Gak ada alasan tidak selesai tercatat pada periode ini.</div>';
+    return;
+  }
+  el.innerHTML = withAlasan.map(r=>`
+    <div class="alasan-item">
+      <div class="alasan-date">${fmtTglFull(r.tanggal)}</div>
+      <div class="alasan-text">${esc(r.alasan)}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+document.getElementById('dateTo').value = todayStr();
+loadData(false);
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(r){console.log('[SW] OK',r.scope);})
+      .catch(function(e){console.warn('[SW]',e);});
+  });
+}
+</script>
+</body>
+</html>
