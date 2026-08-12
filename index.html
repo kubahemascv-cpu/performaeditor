@@ -74,6 +74,7 @@ input,select,button{font-family:var(--font)}
 .alasan-item:last-child{border-bottom:none}
 .alasan-date{font-size:10px;color:var(--mut);font-weight:700;margin-bottom:3px}
 .alasan-text{color:var(--txt2);line-height:1.6}
+.toast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -112,6 +113,10 @@ input,select,button{font-family:var(--font)}
     <div class="summary-card warn"><div class="summary-val" id="k-gap">—</div><div class="summary-lbl">Hari Tanpa Data</div></div>
     <div class="summary-card"><div class="summary-val" id="k-konten">—</div><div class="summary-lbl">Total Konten Diproduksi</div></div>
     <div class="summary-card"><div class="summary-val" id="k-review">—</div><div class="summary-lbl">Review Dilakukan</div></div>
+    <div class="summary-card" style="border-left-color:var(--amb)">
+      <div class="summary-val" id="k-total-review">—</div>
+      <div class="summary-lbl">Total Review GMB &nbsp;<button onclick="openKalibrasiModal()" style="background:none;border:none;color:var(--gr-d);font-size:9.5px;font-weight:700;text-decoration:underline;cursor:pointer;padding:0">🔧 Koreksi</button></div>
+    </div>
   </div>
 
   <div class="section-title">Tren Kepatuhan Checklist</div>
@@ -124,6 +129,12 @@ input,select,button{font-family:var(--font)}
   <div class="card">
     <div class="card-desc">Jumlah konten dibuat per hari, dipecah per channel</div>
     <div class="chart-box"><canvas id="channelChart"></canvas></div>
+  </div>
+
+  <div class="section-title">Pertumbuhan Review GMB</div>
+  <div class="card">
+    <div class="card-desc" id="reviewGrowthDesc">Total review kumulatif dari waktu ke waktu (basis kalibrasi + akumulasi harian)</div>
+    <div class="chart-box"><canvas id="reviewGrowthChart"></canvas></div>
   </div>
 
   <div class="section-title">Daftar Konten Diproduksi</div>
@@ -139,12 +150,40 @@ input,select,button{font-family:var(--font)}
 
 </div>
 
+<!-- MODAL: KOREKSI TOTAL REVIEW GMB -->
+<div class="overlay" id="kalibrasiOverlay" style="display:none;position:fixed;inset:0;background:rgba(28,30,38,.5);z-index:300;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--bg);width:100%;max-width:400px;border-radius:16px;padding:20px">
+    <div style="font-size:15px;font-weight:800;color:var(--ch);margin-bottom:4px">🔧 Koreksi Total Review GMB</div>
+    <p style="font-size:11.5px;color:var(--mut);margin-bottom:16px;line-height:1.6">Dipakai kalau angka di dashboard udah beda jauh sama angka asli di Google Business Profile. Titik ini jadi basis perhitungan baru mulai tanggal yang dipilih.</p>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:var(--ch);margin-bottom:6px;display:block">Tanggal</label>
+      <input type="date" id="kal-tanggal" style="width:100%;padding:11px 13px;border:1.5px solid var(--bdr);border-radius:10px;font-size:13px;color:var(--txt);background:var(--card);outline:none">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:12px;font-weight:700;color:var(--ch);margin-bottom:6px;display:block">Total Review Sekarang (lihat di GMB)</label>
+      <input type="number" min="0" id="kal-nilai" placeholder="Contoh: 72" style="width:100%;padding:11px 13px;border:1.5px solid var(--bdr);border-radius:10px;font-size:13px;color:var(--txt);background:var(--card);outline:none">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="closeKalibrasiModal()" style="padding:12px;border-radius:10px;border:1.5px solid var(--bdr);background:var(--card);color:var(--txt);font-size:12.5px;font-weight:600;cursor:pointer">Batal</button>
+      <button onclick="submitKalibrasi()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--gr),var(--gr-d));color:#fff;font-size:12.5px;font-weight:700;cursor:pointer">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ch);color:#fff;padding:13px 20px;border-radius:12px;font-size:12.5px;font-weight:600;box-shadow:var(--shd2);z-index:999;max-width:90vw;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none"></div>
+
 <script>
 // ══════════════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════════════
 const SHEET_ID = '1Wb5B4CalH7xS6QGwPEHZMa7zD_H9tGxfVsBMM6l-ikA';
 const SHEET_NAME = 'Log Harian';
+const KALIBRASI_SHEET = 'Kalibrasi Review';
+// Endpoint yang SAMA dengan Apps Script Dicky Daily — dashboard ini
+// cuma nulis 1 hal doang ke situ: titik kalibrasi Total Review GMB.
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbziGLJSDm6_2ES1xwz_oL_3YbPbe1wI1PrJ3wfua4khNLvRgQR7e2zvAJyyvO_ea0rg/exec';
+const CLOUD_TOKEN = 'dicky';
+let ALL_KALIBRASI = [];
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function todayStr(){
@@ -204,7 +243,10 @@ let ALL_DATA = [];
 async function loadData(manual){
   document.getElementById('periodLabel').textContent = 'Memuat data...';
   try{
-    const t = await gviz(SHEET_ID, SHEET_NAME, 'A2:M');
+    const [t, kalT] = await Promise.all([
+      gviz(SHEET_ID, SHEET_NAME, 'A2:N'),
+      gviz(SHEET_ID, KALIBRASI_SHEET, 'A2:C'),
+    ]);
     const rows = (t.rows||[]).map(r=>{
       const c = r.c||[];
       const tgl = gvDate(c[0]);
@@ -215,15 +257,25 @@ async function loadData(manual){
         selesai: Number(gv(c[2]))||0,
         total: Number(gv(c[3]))||0,
         review: String(gv(c[5])).trim().toLowerCase()==='ya',
-        iklanCount: Number(gv(c[6]))||0,
-        iklanTitles: String(gv(c[7])||'').split(',').map(s=>s.trim()).filter(Boolean),
-        sosmedCount: Number(gv(c[8]))||0,
-        sosmedTitles: String(gv(c[9])||'').split(',').map(s=>s.trim()).filter(Boolean),
-        offlineCount: Number(gv(c[10]))||0,
-        offlineTitles: String(gv(c[11])||'').split(',').map(s=>s.trim()).filter(Boolean),
-        alasan: String(gv(c[12])||'').trim(),
+        reviewCount: Number(gv(c[6]))||0,
+        iklanCount: Number(gv(c[7]))||0,
+        iklanTitles: String(gv(c[8])||'').split(',').map(s=>s.trim()).filter(Boolean),
+        sosmedCount: Number(gv(c[9]))||0,
+        sosmedTitles: String(gv(c[10])||'').split(',').map(s=>s.trim()).filter(Boolean),
+        offlineCount: Number(gv(c[11]))||0,
+        offlineTitles: String(gv(c[12])||'').split(',').map(s=>s.trim()).filter(Boolean),
+        alasan: String(gv(c[13])||'').trim(),
       };
     }).filter(Boolean);
+
+    // Titik kalibrasi Total Review GMB — diurutkan tanggal, dipakai
+    // sebagai basis hitung kumulatif (lihat computeReviewTotals()).
+    ALL_KALIBRASI = (kalT.rows||[]).map(r=>{
+      const c = r.c||[];
+      const tgl = gvDate(c[0]);
+      if(!tgl) return null;
+      return { tanggal: tgl, nilai: Number(gv(c[1]))||0 };
+    }).filter(Boolean).sort((a,b)=>a.tanggal.localeCompare(b.tanggal));
 
     // Dedup: baris di bawah menimpa baris di atas utk tanggal yg sama —
     // otomatis nyisain cuma baris TERAKHIR per tanggal (paling update).
@@ -284,8 +336,28 @@ function renderAll(){
   renderKPI(CURRENT_ROWS, from, to);
   renderTrendChart(CURRENT_ROWS);
   renderChannelChart(CURRENT_ROWS);
+  renderReviewGrowth(CURRENT_ROWS);
   renderContentList();
   renderAlasanList(CURRENT_ROWS);
+}
+
+// ══════════════════════════════════════════════════════
+// TOTAL REVIEW GMB (kumulatif: kalibrasi terakhir + akumulasi harian
+// sesudahnya). Kalibrasi bisa lebih dari 1 titik kalau pernah dikoreksi.
+// ══════════════════════════════════════════════════════
+function computeReviewTotals(dates){
+  const dateToCount = {};
+  ALL_DATA.forEach(r=>{ dateToCount[r.tanggal] = r.reviewCount; });
+  return dates.map(d=>{
+    let baseline = null;
+    for(let i=ALL_KALIBRASI.length-1;i>=0;i--){
+      if(ALL_KALIBRASI[i].tanggal<=d){ baseline=ALL_KALIBRASI[i]; break; }
+    }
+    if(!baseline) return {tanggal:d, total:null, hasBaseline:false};
+    let sum = baseline.nilai;
+    ALL_DATA.forEach(r=>{ if(r.tanggal>baseline.tanggal && r.tanggal<=d) sum+=r.reviewCount; });
+    return {tanggal:d, total:sum, hasBaseline:true};
+  });
 }
 
 function renderKPI(rows, from, to){
@@ -316,6 +388,9 @@ function renderKPI(rows, from, to){
   document.getElementById('k-gap').textContent = gap;
   document.getElementById('k-konten').textContent = totalKonten;
   document.getElementById('k-review').textContent = reviewYa+'/'+rows.length;
+
+  const totalReviewNow = computeReviewTotals([to])[0];
+  document.getElementById('k-total-review').textContent = totalReviewNow.hasBaseline ? totalReviewNow.total : '—';
 }
 
 function linearTrend(values){
@@ -404,6 +479,73 @@ function renderAlasanList(rows){
       <div class="alasan-date">${fmtTglFull(r.tanggal)}</div>
       <div class="alasan-text">${esc(r.alasan)}</div>
     </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// GRAFIK PERTUMBUHAN REVIEW GMB
+// ══════════════════════════════════════════════════════
+let reviewGrowthChartInstance=null;
+function renderReviewGrowth(rows){
+  const desc = document.getElementById('reviewGrowthDesc');
+  if(!ALL_KALIBRASI.length){
+    desc.innerHTML = '⚠️ Belum ada titik kalibrasi. Klik <b>🔧 Koreksi</b> di kartu "Total Review GMB" buat mulai catat angka awal.';
+    if(reviewGrowthChartInstance){ reviewGrowthChartInstance.destroy(); reviewGrowthChartInstance=null; }
+    return;
+  }
+  desc.textContent = 'Total review kumulatif dari waktu ke waktu (basis kalibrasi + akumulasi harian)';
+  const dates = rows.map(r=>r.tanggal);
+  const totals = computeReviewTotals(dates);
+  const ctx = document.getElementById('reviewGrowthChart');
+  if(reviewGrowthChartInstance) reviewGrowthChartInstance.destroy();
+  reviewGrowthChartInstance = new Chart(ctx,{
+    type:'line',
+    data:{labels: dates.map(fmtTglShort), datasets:[
+      {label:'Total Review GMB', data: totals.map(t=>t.total), borderColor:'#D97706', backgroundColor:'rgba(217,119,6,.12)', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#D97706', tension:.3, fill:true, spanGaps:true}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{y:{ticks:{font:{size:10.5,family:'Poppins'}}},
+              x:{ticks:{font:{size:10,family:'Poppins'}}}}}
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// MODAL KOREKSI TOTAL REVIEW GMB
+// ══════════════════════════════════════════════════════
+function toast(msg, dur=2800){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>el.classList.remove('show'), dur);
+}
+function openKalibrasiModal(){
+  document.getElementById('kal-tanggal').value = todayStr();
+  document.getElementById('kal-nilai').value = '';
+  document.getElementById('kalibrasiOverlay').style.display = 'flex';
+}
+function closeKalibrasiModal(){
+  document.getElementById('kalibrasiOverlay').style.display = 'none';
+}
+async function submitKalibrasi(){
+  const tanggal = document.getElementById('kal-tanggal').value;
+  const nilai = document.getElementById('kal-nilai').value;
+  if(!tanggal){ toast('⚠️ Tanggal wajib diisi.'); return; }
+  if(nilai===''||isNaN(Number(nilai))||Number(nilai)<0){ toast('⚠️ Nilai total harus angka >= 0.'); return; }
+  try{
+    const res = await fetch(CLOUD_URL,{
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'save_kalibrasi_review', token:CLOUD_TOKEN, tanggal, nilai_total:Number(nilai) })
+    }).then(r=>r.json());
+    if(res.ok){
+      toast('✅ Kalibrasi tersimpan.');
+      closeKalibrasiModal();
+      loadData(false);
+    } else {
+      toast('❌ Gagal simpan: '+(res.error||'unknown error'), 4000);
+    }
+  }catch(e){
+    toast('⚠️ Gagal konek ke server: '+e.message, 4000);
+  }
 }
 
 // ══════════════════════════════════════════════════════
