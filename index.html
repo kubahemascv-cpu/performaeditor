@@ -83,6 +83,16 @@ input,select,button{font-family:var(--font)}
 .alasan-date{font-size:10px;color:var(--mut);font-weight:700;margin-bottom:3px}
 .alasan-text{color:var(--txt2);line-height:1.6}
 .toast.show{opacity:1}
+.dl-wrap{position:relative}
+#printDailyHeader{display:none}
+@media print{
+  .topbar,.content-search,button{display:none !important}
+  #printDailyHeader{display:block !important;margin-bottom:16px}
+  #printDailyHeader .ph-title{font-size:18px;font-weight:800;color:#000}
+  #printDailyHeader .ph-sub{font-size:11px;color:#555;margin-top:3px}
+  body{background:#fff}
+  .card,.summary-card,.breakdown-card{box-shadow:none !important;border:1px solid #ddd !important;break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -101,6 +111,13 @@ input,select,button{font-family:var(--font)}
         <option value="custom">Custom Tanggal...</option>
       </select>
       <button class="btn-apply" onclick="loadData(true)">🔄 Refresh</button>
+      <div class="dl-wrap">
+        <button class="btn-apply" onclick="toggleDlMenu()" style="background:rgba(255,255,255,.95)">⬇ Unduh</button>
+        <div id="dlMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:60;overflow:hidden;min-width:160px">
+          <button onclick="downloadCSV()" style="width:100%;text-align:left;padding:11px 14px;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#1C1E26;cursor:pointer">📊 Unduh CSV/Excel</button>
+          <button onclick="downloadPDF()" style="width:100%;text-align:left;padding:11px 14px;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#1C1E26;cursor:pointer">📄 Unduh PDF</button>
+        </div>
+      </div>
     </div>
     <div class="period-row" id="customDateRow" style="display:none;margin-top:8px">
       <input type="date" id="dateFrom">
@@ -111,6 +128,10 @@ input,select,button{font-family:var(--font)}
 </header>
 
 <div class="wrap">
+  <div id="printDailyHeader">
+    <div class="ph-title">Laporan Performa Harian — Content Editor</div>
+    <div class="ph-sub" id="printDailyMeta"></div>
+  </div>
   <div class="period-label" id="periodLabel">Memuat data...</div>
 
   <div class="section-title">Ringkasan</div>
@@ -350,6 +371,113 @@ function renderAll(){
   renderReviewGrowth(CURRENT_ROWS);
   renderContentList();
   renderAlasanList(CURRENT_ROWS);
+}
+
+// ══════════════════════════════════════════════════════
+// DOWNLOAD LAPORAN (CSV/Excel & PDF) — ngikutin periode aktif
+// ══════════════════════════════════════════════════════
+function toggleDlMenu(){
+  const m = document.getElementById('dlMenu');
+  m.style.display = m.style.display==='block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e){
+  const wrap = document.querySelector('.dl-wrap');
+  if(wrap && !wrap.contains(e.target)) document.getElementById('dlMenu').style.display = 'none';
+});
+
+function todayFileStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function downloadPDF(){
+  document.getElementById('dlMenu').style.display = 'none';
+  if(!CURRENT_ROWS.length){ alert('Data belum dimuat / kosong untuk periode ini.'); return; }
+  const {from,to} = getPeriodRange();
+  document.getElementById('printDailyMeta').textContent =
+    fmtTglFull(from)+' — '+fmtTglFull(to)+' • Dicetak '+new Date().toLocaleString('id-ID');
+  window.print();
+}
+
+function downloadCSV(){
+  document.getElementById('dlMenu').style.display = 'none';
+  if(!CURRENT_ROWS.length){ alert('Data belum dimuat / kosong untuk periode ini.'); return; }
+  const {from,to} = getPeriodRange();
+  const rows = CURRENT_ROWS;
+  const q = (s) => '"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const lines = [];
+
+  lines.push(q('LAPORAN PERFORMA HARIAN — CONTENT EDITOR'));
+  lines.push(q('Periode')+','+q(fmtTglFull(from)+' — '+fmtTglFull(to)));
+  lines.push('');
+
+  const avg = rows.reduce((s,r)=>s+r.pct,0)/rows.length;
+  const full = rows.filter(r=>r.pct>=100).length;
+  const low = rows.filter(r=>r.pct<70).length;
+  const totalIklan = rows.reduce((s,r)=>s+r.iklanCount,0);
+  const totalSosmed = rows.reduce((s,r)=>s+r.sosmedCount,0);
+  const totalOffline = rows.reduce((s,r)=>s+r.offlineCount,0);
+  const totalKonten = totalIklan+totalSosmed+totalOffline;
+  const reviewYa = rows.filter(r=>r.review).length;
+  const totalReviewNow = computeReviewTotals([to])[0];
+  const dateSet = new Set(ALL_DATA.map(r=>r.tanggal));
+  let gap = 0;
+  const d0 = new Date(from+'T00:00:00'), d1 = new Date(to+'T00:00:00');
+  for(let d=new Date(d0); d<=d1; d.setDate(d.getDate()+1)){
+    if(d.getDay()===0) continue;
+    if(!dateSet.has(dstr(d))) gap++;
+  }
+
+  lines.push(q('RINGKASAN'));
+  lines.push(q('Metrik')+','+q('Nilai'));
+  lines.push(q('Rata-rata Kepatuhan')+','+q(avg.toFixed(0)+'%'));
+  lines.push(q('Hari Checklist 100%')+','+full);
+  lines.push(q('Hari Kepatuhan Rendah (<70%)')+','+low);
+  lines.push(q('Hari Tanpa Data')+','+gap);
+  lines.push(q('Total Konten Diproduksi')+','+totalKonten);
+  lines.push(q('Review Dilakukan')+','+q(reviewYa+'/'+rows.length));
+  lines.push(q('Total Review GMB')+','+(totalReviewNow.hasBaseline?totalReviewNow.total:'—'));
+  lines.push('');
+
+  lines.push(q('BREAKDOWN KONTEN PER KATEGORI'));
+  lines.push(q('Kategori')+','+q('Jumlah')+','+q('Persentase'));
+  const pctOf = n => totalKonten>0 ? Math.round(n/totalKonten*100) : 0;
+  lines.push(q('Iklan')+','+totalIklan+','+q(pctOf(totalIklan)+'%'));
+  lines.push(q('Sosmed')+','+totalSosmed+','+q(pctOf(totalSosmed)+'%'));
+  lines.push(q('Offline')+','+totalOffline+','+q(pctOf(totalOffline)+'%'));
+  lines.push('');
+
+  lines.push(q('DATA HARIAN'));
+  lines.push(q('Tanggal')+','+q('Kepatuhan %')+','+q('Selesai/Total')+','+q('Review GMB')+','+q('Jml Iklan')+','+q('Judul Iklan')+','+q('Jml Sosmed')+','+q('Judul Sosmed')+','+q('Jml Offline')+','+q('Judul Offline')+','+q('Alasan Tidak Selesai'));
+  rows.forEach(function(r){
+    lines.push([
+      q(fmtTglFull(r.tanggal)), r.pct, q(r.selesai+'/'+r.total), q(r.review?'Ya':'Tidak'),
+      r.iklanCount, q(r.iklanTitles.join(' | ')),
+      r.sosmedCount, q(r.sosmedTitles.join(' | ')),
+      r.offlineCount, q(r.offlineTitles.join(' | ')),
+      q(r.alasan)
+    ].join(','));
+  });
+  lines.push('');
+
+  const alasanRows = rows.filter(r=>r.alasan);
+  lines.push(q('LOG ALASAN TIDAK SELESAI'));
+  lines.push(q('Tanggal')+','+q('Alasan'));
+  if(alasanRows.length===0){
+    lines.push(q('Tidak ada alasan tercatat pada periode ini')+',');
+  } else {
+    alasanRows.forEach(function(r){ lines.push(q(fmtTglFull(r.tanggal))+','+q(r.alasan)); });
+  }
+
+  const blob = new Blob(['\uFEFF'+lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Laporan_Performa_Harian_'+todayFileStr()+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ══════════════════════════════════════════════════════
