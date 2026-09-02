@@ -112,7 +112,7 @@ input,select,button{font-family:var(--font)}
       </select>
       <button class="btn-apply" onclick="loadData(true)">🔄 Refresh</button>
       <div class="dl-wrap">
-        <button class="btn-apply" onclick="toggleDlMenu()" style="background:rgba(255,255,255,.95)">⬇ Unduh</button>
+        <button class="btn-apply" onclick="toggleDlMenu()" style="background:rgba(255,255,255,.95);color:var(--ch)">⬇ Unduh</button>
         <div id="dlMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:60;overflow:hidden;min-width:160px">
           <button onclick="downloadCSV()" style="width:100%;text-align:left;padding:11px 14px;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#1C1E26;cursor:pointer">📊 Unduh CSV/Excel</button>
           <button onclick="downloadPDF()" style="width:100%;text-align:left;padding:11px 14px;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:#1C1E26;cursor:pointer">📄 Unduh PDF</button>
