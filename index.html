@@ -106,7 +106,11 @@ input,select,button{font-family:var(--font)}
         <option value="7">7 Hari Terakhir</option>
         <option value="14" selected>14 Hari Terakhir</option>
         <option value="30">30 Hari Terakhir</option>
+        <option value="thisweek">Minggu Ini</option>
+        <option value="lastweek">Minggu Lalu</option>
+        <option value="2weeksago">2 Minggu Lalu</option>
         <option value="month">Bulan Ini</option>
+        <option value="lastmonth">Bulan Lalu</option>
         <option value="all">Semua Data</option>
         <option value="custom">Custom Tanggal...</option>
       </select>
@@ -340,6 +344,14 @@ function onPeriodChange(){
   document.getElementById('customDateRow').style.display = (v==='custom') ? 'flex' : 'none';
   if(v!=='custom') renderAll();
 }
+function getMondayOf_(d){
+  const day=d.getDay(); // 0=Minggu,1=Senin...6=Sabtu
+  const diff=day===0?6:day-1;
+  const monday=new Date(d);
+  monday.setDate(monday.getDate()-diff);
+  return monday;
+}
+
 function getPeriodRange(){
   const v = document.getElementById('periodSelect').value;
   const maxDate = ALL_DATA.length ? ALL_DATA[ALL_DATA.length-1].tanggal : todayStr();
@@ -349,6 +361,28 @@ function getPeriodRange(){
     const now = new Date();
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
     return {from: dstr(from), to:maxDate};
+  }
+  if(v==='lastmonth'){
+    const now=new Date();
+    const from=new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const to=new Date(now.getFullYear(), now.getMonth(), 0); // hari terakhir bulan lalu
+    return {from: dstr(from), to: dstr(to)};
+  }
+  if(v==='thisweek'){
+    const monday=getMondayOf_(new Date());
+    return {from: dstr(monday), to: maxDate};
+  }
+  if(v==='lastweek'){
+    const thisMonday=getMondayOf_(new Date());
+    const lastMonday=new Date(thisMonday); lastMonday.setDate(lastMonday.getDate()-7);
+    const lastSunday=new Date(thisMonday); lastSunday.setDate(lastSunday.getDate()-1);
+    return {from: dstr(lastMonday), to: dstr(lastSunday)};
+  }
+  if(v==='2weeksago'){
+    const thisMonday=getMondayOf_(new Date());
+    const monday2=new Date(thisMonday); monday2.setDate(monday2.getDate()-14);
+    const sunday2=new Date(thisMonday); sunday2.setDate(sunday2.getDate()-8);
+    return {from: dstr(monday2), to: dstr(sunday2)};
   }
   if(v==='custom'){
     const from = document.getElementById('dateFrom').value || minDate;
