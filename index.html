@@ -172,6 +172,12 @@ input,select,button{font-family:var(--font)}
     <div class="chart-box"><canvas id="channelChart"></canvas></div>
   </div>
 
+  <div class="section-title">Tren Pertumbuhan WA Status</div>
+  <div class="card">
+    <div class="card-desc">Garis putus-putus = tren keseluruhan (regresi linear) tiap divisi</div>
+    <div class="chart-box"><canvas id="waStatusChart"></canvas></div>
+  </div>
+
   <div class="section-title">Breakdown Total Konten per Kategori</div>
   <div class="breakdown-grid" id="breakdownGrid"></div>
 
@@ -412,6 +418,7 @@ function renderAll(){
   renderKPI(CURRENT_ROWS, from, to);
   renderTrendChart(CURRENT_ROWS);
   renderChannelChart(CURRENT_ROWS);
+  renderWaStatusChart(CURRENT_ROWS);
   renderReviewGrowth(CURRENT_ROWS);
   renderContentList();
   renderAlasanList(CURRENT_ROWS);
@@ -652,6 +659,30 @@ function renderChannelChart(rows){
       plugins:{legend:{display:true,position:'top',labels:{font:{size:10.5,family:'Poppins'}}}},
       scales:{y:{beginAtZero:true,ticks:{font:{size:10.5,family:'Poppins'},stepSize:1}},
               x:{stacked:false,ticks:{font:{size:10,family:'Poppins'}}}}}
+  });
+}
+
+let waStatusChartInstance=null;
+function renderWaStatusChart(rows){
+  const ctx = document.getElementById('waStatusChart');
+  const labels = rows.map(r=>fmtTglShort(r.tanggal));
+  const tokoData = rows.map(r=>r.waStatusToko);
+  const kumasindoData = rows.map(r=>r.waStatusKumasindo);
+  const tokoTrend = linearTrend(tokoData);
+  const kumasindoTrend = linearTrend(kumasindoData);
+  if(waStatusChartInstance) waStatusChartInstance.destroy();
+  waStatusChartInstance = new Chart(ctx,{
+    type:'line',
+    data:{labels, datasets:[
+      {label:'WA Status Toko', data:tokoData, borderColor:'#15803D', backgroundColor:'rgba(21,128,61,.10)', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#15803D', tension:.3, fill:true},
+      {label:'Tren Toko', data:tokoTrend, borderColor:'#15803D', borderDash:[6,4], borderWidth:1.5, pointRadius:0, tension:0, fill:false},
+      {label:'WA Status Kumasindo', data:kumasindoData, borderColor:'#D97706', backgroundColor:'rgba(217,119,6,.10)', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#D97706', tension:.3, fill:true},
+      {label:'Tren Kumasindo', data:kumasindoTrend, borderColor:'#D97706', borderDash:[6,4], borderWidth:1.5, pointRadius:0, tension:0, fill:false},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{font:{size:10.5,family:'Poppins'},boxWidth:10}}},
+      scales:{y:{beginAtZero:true,ticks:{font:{size:10.5,family:'Poppins'},stepSize:1}},
+              x:{ticks:{font:{size:10,family:'Poppins'}}}}}
   });
 }
 

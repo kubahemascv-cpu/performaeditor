@@ -1,5 +1,5 @@
 // SW Dashboard Performa Harian — Content Editor
-const CACHE = 'log-harian-dashboard-v5';
+const CACHE = 'log-harian-dashboard-v6';
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
