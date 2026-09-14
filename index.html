@@ -146,6 +146,14 @@ input,select,button{font-family:var(--font)}
       <div class="summary-val" id="k-total-review">—</div>
       <div class="summary-lbl">Total Review GMB &nbsp;<button onclick="openKalibrasiModal()" style="background:none;border:none;color:var(--gr-d);font-size:9.5px;font-weight:700;text-decoration:underline;cursor:pointer;padding:0">🔧 Koreksi</button></div>
     </div>
+    <div class="summary-card" style="border-left-color:var(--gr)">
+      <div class="summary-val" id="k-wa-toko">—</div>
+      <div class="summary-lbl">Jumlah WA Status Toko</div>
+    </div>
+    <div class="summary-card" style="border-left-color:var(--gr)">
+      <div class="summary-val" id="k-wa-kumasindo">—</div>
+      <div class="summary-lbl">Jumlah WA Status Kumasindo</div>
+    </div>
   </div>
 
   <div class="section-title">Tren Kepatuhan Checklist</div>
@@ -276,7 +284,7 @@ async function loadData(manual){
   document.getElementById('periodLabel').textContent = 'Memuat data...';
   try{
     const [t, kalT] = await Promise.all([
-      gviz(SHEET_ID, SHEET_NAME, 'A2:N'),
+      gviz(SHEET_ID, SHEET_NAME, 'A2:P'),
       gviz(SHEET_ID, KALIBRASI_SHEET, 'A2:C'),
     ]);
     const rows = (t.rows||[]).map(r=>{
@@ -297,6 +305,8 @@ async function loadData(manual){
         offlineCount: Number(gv(c[11]))||0,
         offlineTitles: String(gv(c[12])||'').split(',').map(s=>s.trim()).filter(Boolean),
         alasan: String(gv(c[13])||'').trim(),
+        waStatusToko: Number(gv(c[14]))||0,
+        waStatusKumasindo: Number(gv(c[15]))||0,
       };
     }).filter(Boolean);
 
@@ -501,7 +511,7 @@ function computeReviewTotals(dates){
 
 function renderKPI(rows, from, to){
   if(!rows.length){
-    ['k-avg','k-full','k-low','k-gap','k-konten','k-review'].forEach(id=>document.getElementById(id).textContent='—');
+    ['k-avg','k-full','k-low','k-gap','k-konten','k-review','k-wa-toko','k-wa-kumasindo'].forEach(id=>document.getElementById(id).textContent='—');
     document.getElementById('breakdownGrid').innerHTML = '<div class="content-empty">Belum ada data pada periode ini.</div>';
     return;
   }
@@ -513,6 +523,8 @@ function renderKPI(rows, from, to){
   const totalOffline = rows.reduce((s,r)=>s+r.offlineCount,0);
   const totalKonten = totalIklan+totalSosmed+totalOffline;
   const reviewYa = rows.filter(r=>r.review).length;
+  const totalWaToko = rows.reduce((s,r)=>s+r.waStatusToko,0);
+  const totalWaKumasindo = rows.reduce((s,r)=>s+r.waStatusKumasindo,0);
 
   // Hari Tanpa Data: tanggal dalam rentang [from,to] yg BUKAN hari Minggu
   // (hari istirahat di app checklist-nya) tapi gak ada entri di ALL_DATA.
@@ -531,6 +543,8 @@ function renderKPI(rows, from, to){
   document.getElementById('k-gap').textContent = gap;
   document.getElementById('k-konten').textContent = totalKonten;
   document.getElementById('k-review').textContent = reviewYa+'/'+rows.length;
+  document.getElementById('k-wa-toko').textContent = totalWaToko.toLocaleString('id-ID');
+  document.getElementById('k-wa-kumasindo').textContent = totalWaKumasindo.toLocaleString('id-ID');
 
   // Breakdown besar per kategori — section terpisah di bawah grafik channel
   const pctOf = n => totalKonten>0 ? Math.round(n/totalKonten*100) : 0;
